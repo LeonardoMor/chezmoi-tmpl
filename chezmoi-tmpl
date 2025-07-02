@@ -153,16 +153,11 @@ nvimconfm::remove() {
 }
 
 parse_subcommands() {
-    local subcmd
-    subcmd="$1"
+    local subcmd="$1"
     shift
     case "$subcmd" in
-        add)
-            nvimconfm::add "$@"
-            ;;
-        remove)
-            nvimconfm::remove "$@"
-            ;;
+        add) tmpl::add "$@" ;;
+        remove) tmpl::remove "$@" ;;
         *)
             die e "Unknown subcommand or option"
             exit 1
