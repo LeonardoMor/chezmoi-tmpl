@@ -1,25 +1,34 @@
 #!/usr/bin/env bash
 
-NAME="$(basename "$0")"
-
 die() {
     case "$1" in
-        i)
-            printf 'INFO: %s\n' "$2" >&2
-            ;;
-        e)
-            printf 'ERROR: %s\n' "$2" >&2
-            ;;
-        w)
-            printf 'WARNING: %s\n' "$2" >&2
-            ;;
-        f)
-            printf 'FATAL: %s\n' "$2" >&2
-            ;;
-        *)
-            die e "Invalid option or format"
-            ;;
+        i) printf 'INFO: %s\n' "$2" >&2 ;;
+        e) printf 'ERROR: %s\n' "$2" >&2 ;;
+        w) printf 'WARNING: %s\n' "$2" >&2 ;;
+        f) printf 'FATAL: %s\n' "$2" >&2 ;;
+        *) printf 'ERROR: Invalid option or format\n' >&2 ;;
     esac
+}
+
+# Check pre-requisites
+jq --version >/dev/null 2>&1 || {
+    die f "jq is required. Please install it, then try again."
+    exit 1
+}
+
+[[ ${BASH_VERSINFO[0]} -gt 3 ]] || {
+    die f "Bash version 4 or newer is required. Current version: $BASH_VERSION"
+    exit 1
+}
+
+NAME="$(basename "$0")"
+CHEZMOISOURCE="$(chezmoi source-path)"
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+# Determine editor: environment variable, chezmoi.toml, or nvim
+[[ $EDITOR ]] || {
+    EDITOR="$(chezmoi dump-config | jq --raw-output '.edit.command')"
+    EDITOR="${EDITOR:-vi}"
 }
 
 change_dir() {
