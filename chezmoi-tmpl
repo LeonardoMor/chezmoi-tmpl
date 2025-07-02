@@ -166,16 +166,26 @@ parse_subcommands() {
 }
 
 main() {
-    local opt OPTIND
-    while getopts h opt "$@"; do
+    local opt OPTIND OPTARG
+    while getopts hp:w:x: opt "$@"; do
         case "$opt" in
             h)
                 help
-                exit 0
+                exit
+                ;;
+            p)
+                prefix="$OPTARG"
+                ;;
+            w)
+                SYSTEMS+=("win") TARGETPREFIX[win]="$OPTARG"
+                ;;
+            x)
+                SYSTEMS+=("nix") TARGETPREFIX[nix]="$OPTARG"
                 ;;
             ?)
-                die e 'Unknown option'
-                help >&2
+                die e 'add: Unknown option.'
+                usage >&2
+                exit 1
                 ;;
         esac
     done
