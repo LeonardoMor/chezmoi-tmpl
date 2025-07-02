@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+NAME="$(basename "$0")"
+
+die() {
+    case "$1" in
+        i)
+            printf 'INFO: %s\n' "$2" >&2
+            ;;
+        e)
+            printf 'ERROR: %s\n' "$2" >&2
+            ;;
+        w)
+            printf 'WARNING: %s\n' "$2" >&2
+            ;;
+        f)
+            printf 'FATAL: %s\n' "$2" >&2
+            ;;
+        *)
+            die e "Invalid option or format"
+            ;;
+    esac
+}
+
+change_dir() {
+    cd "$1" || {
+        die f "Failed to change $1"
+        exit 1
+    }
+}
+
+help() {
+    cat <<HERE
+This operates on files. Give files as a path relative to the nvim dir.
+HERE
+}
+
+CHEZMOISOURCE="$(chezmoi source-path)"
+SOURCEPREFIX="$CHEZMOISOURCE/.chezmoitemplates/nvim"
+declare -A TARGETPREFIX=(
+    [nix]="dot_config/nvim"
+    [win]="AppData/Local/nvim"
+)
+
+set_CONSTANTS() {
+    if [[ -z $1 ]]; then
+        die e "set_CONSTANTS: File path cannot be empty."
+        exit 1
+    fi
+    if [[ $1 == /* ]]; then
+        die e "set_CONSTANTS: File path must be relative to nvim directory."
+        exit 1
+    fi
+    ORIGINAL_PARENT="${1%/*}" ORIGINAL_PARENT="${ORIGINAL_PARENT%"$1"}"
+    TEMPLATE_STR="{{ template \"nvim/$1\" . }}"
+    FILENAME="$(basename "$1")"
+    TRANSFORMED_PARENT="${ORIGINAL_PARENT:+"$(sed -E 's|([^/]+)|exact_\1|g' <<<"$ORIGINAL_PARENT")"}"
+}
+
+# System specific templates, pointing to the source template
+process_system_templates() {
+    local target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$1]}/$TRANSFORMED_PARENT"
+    [[ -d $target_dir ]] || mkdir -p "$target_dir"
+    echo "$TEMPLATE_STR" >"$target_dir/$FILENAME.tmpl"
+}
+
+nvimconfm::add() {
+    local OPTIND opt
+    local systems=()
+
+    usage() {
+        cat <<HERE
+Usage: $NAME add [-h] [-w] [-x] file
+Add a Neovim configuration file and generate templates.
+
+Options:
+  -h  Show this help message and exit.
+  -w  Generate template for Windows only.
+  -x  Generate template for Linux only.
+      If neither -w nor -x is specified, templates are generated for both.
+
+Arguments:
+  file  Path to the configuration file, relative to the Neovim directory
+        (e.g., "init.lua" or "lua/plugins.lua").
+
+Example:
+  $NAME add lua/plugins.lua  # Creates file and templates for both Linux and Windows
+HERE
+    }
+
+    while getopts hwx opt "$@"; do
+        case "$opt" in
+            h)
+                usage
+                exit
+                ;;
+            w)
+                systems+=("win")
+                ;;
+            x)
+                systems+=("nix")
+                ;;
+            ?)
+                die e 'add: Unknown option.'
+                usage >&2
+                exit 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if [[ $# -ne 1 ]]; then
+        die e "add: Exactly one file must be provided."
+        usage >&2
+        exit 1
+    fi
+
+    set_CONSTANTS "$1"
+    if [[ -n $ORIGINAL_PARENT ]]; then
+        [[ -d "${SOURCEPREFIX}/$ORIGINAL_PARENT" ]] || mkdir -p "${SOURCEPREFIX}/$ORIGINAL_PARENT"
+    fi
+
+    nvim "$SOURCEPREFIX/$1"
+
+    [[ ${#systems[@]} -eq 0 ]] && systems=("nix" "win")
+    for os in "${systems[@]}"; do
+        process_system_templates "$os" "$1"
+    done
+}
+
+nvimconfm::remove() {
+    echo "This is the remove function with args: $*"
+}
+
+parse_subcommands() {
+    local subcmd
+    subcmd="$1"
+    shift
+    case "$subcmd" in
+        add)
+            nvimconfm::add "$@"
+            ;;
+        remove)
+            nvimconfm::remove "$@"
+            ;;
+        *)
+            die e "Unknown subcommand or option"
+            exit 1
+            ;;
+    esac
+}
+
+main() {
+    local opt OPTIND
+    while getopts h opt "$@"; do
+        case "$opt" in
+            h)
+                help
+                exit 0
+                ;;
+            ?)
+                die e 'Unknown option'
+                help >&2
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    parse_subcommands "$@"
+}
+
+# Entry point
+main "$@"
