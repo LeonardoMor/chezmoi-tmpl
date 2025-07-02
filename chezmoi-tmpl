@@ -40,7 +40,18 @@ change_dir() {
 
 help() {
     cat <<HERE
-This operates on files. Give files as a path relative to the nvim dir.
+Manage template files in $CHEZMOISOURCE/.chezmoitemplates/<prefix>.
+Give files as paths relative to $CHEZMOISOURCE/.chezmoitemplates/<prefix>.
+Use $NAME <subcommand> -h to get help for individual subcommands.
+
+Usage: $NAME [options] <subcommand> [options] file
+
+Options:
+  -h		Show this help message and exit.
+
+Subcommands:
+  add		Add a template file and generate target templates
+  remove	Remove a template file and its target templates
 HERE
 }
 
