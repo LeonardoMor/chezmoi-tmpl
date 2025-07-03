@@ -11,10 +11,6 @@ die() {
 }
 
 # Check pre-requisites
-if [[ $(chezmoi data | jq --raw-output '.chezmoi.os') == "windows" ]]; then
-    die f "Windows is not supported yet."
-    exit 1
-fi
 [[ ${BASH_VERSINFO[0]} -gt 3 ]] || {
     die f "Bash version 4 or newer is required. Current version: $BASH_VERSION"
     exit 1
@@ -24,6 +20,11 @@ jq --version >/dev/null 2>&1 || {
     die f "jq is required. Please install it, then try again."
     exit 1
 }
+
+if [[ $(chezmoi data | jq --raw-output '.chezmoi.os') == "windows" ]]; then
+    die f "Windows is not supported yet."
+    exit 1
+fi
 
 NAME="$(basename "$0")"
 CHEZMOISOURCE="$(chezmoi source-path)"
