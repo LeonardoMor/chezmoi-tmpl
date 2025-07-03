@@ -44,11 +44,11 @@ Manage template files in $CHEZMOISOURCE/.chezmoitemplates/<prefix>.
 Give files as paths relative to $CHEZMOISOURCE/.chezmoitemplates/<prefix>.
 Use $NAME <subcommand> -h to get help for individual subcommands.
 
-Usage: $NAME [options] <subcommand> [options] file
+Usage: $NAME [options] {add|remove} [options] file
 
 Options:
   -h		Show this help message and exit.
-  -p prefix	Specify the template prefix (e.g., nvim, zsh).
+  -p prefix	Specify the template prefix (e.g., nvim, git, alacritty...).
   -w target	Generate template for Windows with the specified target prefix.
   -x target	Generate template for macOS/Linux with the specified target prefix.
 		At least one of -w or -x is required.
@@ -59,70 +59,59 @@ Subcommands:
 HERE
 }
 
-CHEZMOISOURCE="$(chezmoi source-path)"
-SOURCEPREFIX="$CHEZMOISOURCE/.chezmoitemplates/nvim"
-declare -A TARGETPREFIX=(
-    [nix]="dot_config/nvim"
-    [win]="AppData/Local/nvim"
-)
-
 set_CONSTANTS() {
-    if [[ -z $1 ]]; then
-        die e "set_CONSTANTS: File path cannot be empty."
-        exit 1
-    fi
     if [[ $1 == /* ]]; then
-        die e "set_CONSTANTS: File path must be relative to nvim directory."
+        die e "File path must be relative to $PREFIX"
         exit 1
     fi
     ORIGINAL_PARENT="${1%/*}" ORIGINAL_PARENT="${ORIGINAL_PARENT%"$1"}"
-    TEMPLATE_STR="{{ template \"nvim/$1\" . }}"
+    TEMPLATE_STR="{{ template \"$PREFIX/$1\" . }}"
     FILENAME="$(basename "$1")"
     TRANSFORMED_PARENT="${ORIGINAL_PARENT:+"$(sed -E 's|([^/]+)|exact_\1|g' <<<"$ORIGINAL_PARENT")"}"
 }
 
 # System specific templates, pointing to the source template
 process_system_templates() {
-    local target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$1]}/$TRANSFORMED_PARENT"
+    local target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$1]:-$FILENAME}"
+    [[ -n $TRANSFORMED_PARENT ]] && target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$1]}/$TRANSFORMED_PARENT"
     [[ -d $target_dir ]] || mkdir -p "$target_dir"
     echo "$TEMPLATE_STR" >"$target_dir/$FILENAME.tmpl"
 }
 
-nvimconfm::add() {
-    local OPTIND opt
-    local systems=()
+tmpl::add() {
+    local OPTIND opt prefix systems=()
 
-    usage() {
-        cat <<HERE
-Usage: $NAME add [-h] [-w] [-x] file
-Add a Neovim configuration file and generate templates.
-
-Options:
-  -h  Show this help message and exit.
-  -w  Generate template for Windows only.
-  -x  Generate template for Linux only.
-      If neither -w nor -x is specified, templates are generated for both.
-
-Arguments:
-  file  Path to the configuration file, relative to the Neovim directory
-        (e.g., "init.lua" or "lua/plugins.lua").
-
-Example:
-  $NAME add lua/plugins.lua  # Creates file and templates for both Linux and Windows
-HERE
-    }
-
-    while getopts hwx opt "$@"; do
+    while getopts hp:w:x: opt "$@"; do
         case "$opt" in
             h)
                 usage
                 exit
                 ;;
+            p)
+                if [[ $OPTARG == *:* ]]; then
+                    die e "add: Prefix cannot contain colons (:)."
+                    usage >&2
+                    exit 1
+                fi
+                prefix="$OPTARG"
+                ;;
             w)
+                if [[ $OPTARG == *:* ]]; then
+                    die e "add: Windows target prefix cannot contain colons (:)."
+                    usage >&2
+                    exit 1
+                fi
                 systems+=("win")
+                TARGETPREFIX[win]="$OPTARG"
                 ;;
             x)
+                if [[ $OPTARG == *:* ]]; then
+                    die e "add: macOS/Linux target prefix cannot contain colons (:)."
+                    usage >&2
+                    exit 1
+                fi
                 systems+=("nix")
+                TARGETPREFIX[nix]="$OPTARG"
                 ;;
             ?)
                 die e 'add: Unknown option.'
@@ -133,22 +122,35 @@ HERE
     done
     shift $((OPTIND - 1))
 
+    if [[ -z $prefix ]]; then
+        die e "add: Prefix must be specified with -p."
+        usage >&2
+        exit 1
+    fi
     if [[ $# -ne 1 ]]; then
         die e "add: Exactly one file must be provided."
         usage >&2
         exit 1
     fi
+    if [[ ${#systems[@]} -eq 0 ]]; then
+        die e "add: At least one of -w or -x must be specified."
+        usage >&2
+        exit 1
+    fi
 
+    SOURCEPREFIX="$CHEZMOISOURCE/.chezmoitemplates/$prefix"
     set_CONSTANTS "$1"
     if [[ -n $ORIGINAL_PARENT ]]; then
         [[ -d "${SOURCEPREFIX}/$ORIGINAL_PARENT" ]] || mkdir -p "${SOURCEPREFIX}/$ORIGINAL_PARENT"
     fi
+    if [[ -f "${SOURCEPREFIX}/$1" ]]; then
+        die w "File ${SOURCEPREFIX}/$1 already exists. Opening for editing."
+    fi
 
-    nvim "$SOURCEPREFIX/$1"
+    $EDITOR "$SOURCEPREFIX/$1" || die e "Failed to edit file with $EDITOR."
 
-    [[ ${#systems[@]} -eq 0 ]] && systems=("nix" "win")
     for os in "${systems[@]}"; do
-        process_system_templates "$os" "$1"
+        process_system_templates "$os"
     done
 }
 
@@ -274,7 +276,7 @@ main() {
                 exit
                 ;;
             p)
-                prefix="$OPTARG"
+                PREFIX="$OPTARG"
                 ;;
             w)
                 SYSTEMS+=("win") TARGETPREFIX[win]="$OPTARG"
