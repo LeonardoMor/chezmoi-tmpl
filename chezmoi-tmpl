@@ -152,8 +152,104 @@ HERE
     done
 }
 
-nvimconfm::remove() {
-    echo "This is the remove function with args: $*"
+tmpl::remove() {
+    :
+    #     local OPTIND opt prefix systems=() removed=0
+    #
+    #     usage() {
+    #         cat <<HERE
+    # Usage: $NAME remove [-h] [-p prefix] [-w target] [-x target] file
+    # Remove a template file from .chezmoitemplates/<prefix> and its target templates.
+    #
+    # Options:
+    #   -h           Show this help message and exit.
+    #   -p prefix    Specify the template prefix (e.g., nvim, zsh).
+    #   -w target    Remove template for Windows with the specified target prefix.
+    #   -x target    Remove template for macOS/Linux with the specified target prefix.
+    #                At least one of -w or -x is required.
+    #
+    # Arguments:
+    #   file  Path to the template file, relative to .chezmoitemplates/<prefix>
+    #         (e.g., "init.lua" or "lua/plugins.lua" for nvim prefix).
+    #
+    # Example:
+    #   $NAME remove -p nvim -x dot_config/nvim -w AppData/Local/nvim lua/plugins.lua
+    # HERE
+    #     }
+    #
+    #     while getopts hp:w:x: opt "$@"; do
+    #         case "$opt" in
+    #             h)
+    #                 usage
+    #                 exit
+    #                 ;;
+    #             p)
+    #                 if [[ $OPTARG == *:* ]]; then
+    #                     die e "remove: Prefix cannot contain colons (:)."
+    #                     usage >&2
+    #                     exit 1
+    #                 fi
+    #                 prefix="$OPTARG"
+    #                 ;;
+    #             w)
+    #                 if [[ $OPTARG == *:* ]]; then
+    #                     die e "remove: Windows target prefix cannot contain colons (:)."
+    #                     usage >&2
+    #                     exit 1
+    #                 fi
+    #                 systems+=("win")
+    #                 TARGETPREFIX[win]="$OPTARG"
+    #                 ;;
+    #             x)
+    #                 if [[ $OPTARG == *:* ]]; then
+    #                     die e "remove: macOS/Linux target prefix cannot contain colons (:)."
+    #                     usage >&2
+    #                     exit 1
+    #                 fi
+    #                 systems+=("nix")
+    #                 TARGETPREFIX[nix]="$OPTARG"
+    #                 ;;
+    #             ?)
+    #                 die e 'remove: Unknown option.'
+    #                 usage >&2
+    #                 exit 1
+    #                 ;;
+    #         esac
+    #     done
+    #     shift $((OPTIND - 1))
+    #
+    #     if [[ -z $prefix ]]; then
+    #         die e "remove: Prefix must be specified with -p."
+    #         usage >&2
+    #         exit 1
+    #     fi
+    #     if [[ $# -ne 1 ]]; then
+    #         die e "remove: Exactly one file must be provided."
+    #         usage >&2
+    #         exit 1
+    #     fi
+    #     if [[ ${#systems[@]} -eq 0 ]]; then
+    #         die e "remove: At least one of -w or -x must be specified."
+    #         usage >&2
+    #         exit 1
+    #     fi
+    #
+    #     PREFIX="$prefix"
+    #     SOURCEPREFIX="$CHEZMOISOURCE/.chezmoitemplates/$prefix"
+    #     set_CONSTANTS "$1"
+    #     for os in "${systems[@]}"; do
+    #         local target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$os]:-$FILENAME}"
+    #         [[ -n $TRANSFORMED_PARENT ]] && target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$os]}/$TRANSFORMED_PARENT"
+    #         if [[ -f "$target_dir/$FILENAME.tmpl" ]]; then
+    #             rm -f "$target_dir/$FILENAME.tmpl"
+    #             ((removed++))
+    #         fi
+    #     done
+    #     if [[ -f "$SOURCEPREFIX/$1" ]]; then
+    #         rm -f "$SOURCEPREFIX/$1"
+    #         ((removed++))
+    #     fi
+    #     [[ $removed -eq 0 ]] && die w "No files were removed for $1."
 }
 
 parse_subcommands() {
