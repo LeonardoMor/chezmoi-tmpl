@@ -28,7 +28,6 @@ fi
 
 NAME="$(basename "$0")"
 CHEZMOISOURCE="$(chezmoi source-path)"
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 # Determine editor: environment variable, chezmoi.toml, or vi
 [[ $EDITOR ]] || {
@@ -54,13 +53,17 @@ Usage: $NAME [options] {add|remove} [options] file
 Options:
   -h		Show this help message and exit.
   -p prefix	Specify the template prefix (e.g., nvim, git, alacritty...).
-  -w target	Generate template for Windows with the specified target prefix.
-  -x target	Generate template for macOS/Linux with the specified target prefix.
-		At least one of -w or -x is required.
+  -t target	Colon separated list of paths relative to $CHEZMOISOURCE.
+  		These are expected to be parent paths to the file that points 
+		the source template.
 
 Subcommands:
   add		Add a template file and generate target templates
   remove	Remove a template file and its target templates
+
+Parameters:
+  file		The source template config file. chezmoi attributes are 
+  		supported
 HERE
 }
 
