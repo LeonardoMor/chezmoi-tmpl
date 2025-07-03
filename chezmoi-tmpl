@@ -25,7 +25,7 @@ NAME="$(basename "$0")"
 CHEZMOISOURCE="$(chezmoi source-path)"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
-# Determine editor: environment variable, chezmoi.toml, or nvim
+# Determine editor: environment variable, chezmoi.toml, or vi
 [[ $EDITOR ]] || {
     EDITOR="$(chezmoi dump-config | jq --raw-output '.edit.command')"
     EDITOR="${EDITOR:-vi}"
