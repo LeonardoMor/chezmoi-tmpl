@@ -11,21 +11,25 @@ die() {
 }
 
 # Check pre-requisites
-jq --version >/dev/null 2>&1 || {
-    die f "jq is required. Please install it, then try again."
-    exit 1
-}
-
 [[ ${BASH_VERSINFO[0]} -gt 3 ]] || {
     die f "Bash version 4 or newer is required. Current version: $BASH_VERSION"
     exit 1
 }
 
+jq --version >/dev/null 2>&1 || {
+    die f "jq is required. Please install it, then try again."
+    exit 1
+}
+
+if [[ $(chezmoi data | jq --raw-output '.chezmoi.os') == "windows" ]]; then
+    die f "Windows is not supported yet."
+    exit 1
+fi
+
 NAME="$(basename "$0")"
 CHEZMOISOURCE="$(chezmoi source-path)"
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+PREFIX="$CHEZMOISOURCE/.chezmoitemplates"
 
-# Determine editor: environment variable, chezmoi.toml, or nvim
 [[ $EDITOR ]] || {
     EDITOR="$(chezmoi dump-config | jq --raw-output '.edit.command')"
     EDITOR="${EDITOR:-vi}"
@@ -40,77 +44,50 @@ change_dir() {
 
 help() {
     cat <<HERE
-This operates on files. Give files as a path relative to the nvim dir.
+Manage template files in $CHEZMOISOURCE/.chezmoitemplates
+Use $NAME <subcommand> -h to get help for individual subcommands.
+
+Usage: $NAME [options] {add|remove|rename} [options] parameters
+
+Options:
+  -h		Show this help message and exit.
+
+Subcommands:
+  add		Create a source template file and target templates pointing to it.
+  remove	Placeholder
+  rename	Placeholder
 HERE
 }
 
-CHEZMOISOURCE="$(chezmoi source-path)"
-SOURCEPREFIX="$CHEZMOISOURCE/.chezmoitemplates/nvim"
-declare -A TARGETPREFIX=(
-    [nix]="dot_config/nvim"
-    [win]="AppData/Local/nvim"
-)
-
-set_CONSTANTS() {
-    if [[ -z $1 ]]; then
-        die e "set_CONSTANTS: File path cannot be empty."
-        exit 1
-    fi
-    if [[ $1 == /* ]]; then
-        die e "set_CONSTANTS: File path must be relative to nvim directory."
-        exit 1
-    fi
-    ORIGINAL_PARENT="${1%/*}" ORIGINAL_PARENT="${ORIGINAL_PARENT%"$1"}"
-    TEMPLATE_STR="{{ template \"nvim/$1\" . }}"
-    FILENAME="$(basename "$1")"
-    TRANSFORMED_PARENT="${ORIGINAL_PARENT:+"$(sed -E 's|([^/]+)|exact_\1|g' <<<"$ORIGINAL_PARENT")"}"
-}
-
-# System specific templates, pointing to the source template
-process_system_templates() {
-    local target_dir="$CHEZMOISOURCE/${TARGETPREFIX[$1]}/$TRANSFORMED_PARENT"
-    [[ -d $target_dir ]] || mkdir -p "$target_dir"
-    echo "$TEMPLATE_STR" >"$target_dir/$FILENAME.tmpl"
-}
-
-nvimconfm::add() {
-    local OPTIND opt
-    local systems=()
+tmpl::add() {
+    local opt OPTIND OPTARG
 
     usage() {
         cat <<HERE
-Usage: $NAME add [-h] [-w] [-x] file
-Add a Neovim configuration file and generate templates.
+Add template files on $CHEZMOISOURCE/.chezmoitemplates and generate their 
+corresponding template files pointing to the source on the indicated targets.
+
+Usage: $NAME [options] add [options] paths
 
 Options:
-  -h  Show this help message and exit.
-  -w  Generate template for Windows only.
-  -x  Generate template for Linux only.
-      If neither -w nor -x is specified, templates are generated for both.
+  -h		Show this help message and exit.
 
-Arguments:
-  file  Path to the configuration file, relative to the Neovim directory
-        (e.g., "init.lua" or "lua/plugins.lua").
-
-Example:
-  $NAME add lua/plugins.lua  # Creates file and templates for both Linux and Windows
+Parameters:
+  paths		Space separated list of files as paths
+  		The first path should be relative to $CHEZMOISOURCE/.chezmoitemplates,
+		it's the source file.
+		The remaining items should be relative to $CHEZMOISOURCE and are the target templates.
 HERE
     }
 
-    while getopts hwx opt "$@"; do
+    while getopts h opt "$@"; do
         case "$opt" in
             h)
                 usage
                 exit
                 ;;
-            w)
-                systems+=("win")
-                ;;
-            x)
-                systems+=("nix")
-                ;;
             ?)
-                die e 'add: Unknown option.'
+                die e 'add: unknown option.'
                 usage >&2
                 exit 1
                 ;;
@@ -118,58 +95,74 @@ HERE
     done
     shift $((OPTIND - 1))
 
-    if [[ $# -ne 1 ]]; then
-        die e "add: Exactly one file must be provided."
+    [[ $# -gt 1 ]] || {
+        die e "add: too few arguments"
         usage >&2
         exit 1
-    fi
+    }
 
-    set_CONSTANTS "$1"
-    if [[ -n $ORIGINAL_PARENT ]]; then
-        [[ -d "${SOURCEPREFIX}/$ORIGINAL_PARENT" ]] || mkdir -p "${SOURCEPREFIX}/$ORIGINAL_PARENT"
-    fi
+    local message srcfile srctmp REPLY tmplstr targets=()
+    srcfile="$PREFIX/$1" srctmp="/tmp/$(date +%s)_$(basename "$srcfile")"
+    shift
+    targets=("$@")
+    $EDITOR "$srctmp"
+    tmplstr="{{ template \"${srcfile#"$PREFIX/"}\" . }}"
 
-    nvim "$SOURCEPREFIX/$1"
+    message="chezmoi-tmpl: These will be written:
 
-    [[ ${#systems[@]} -eq 0 ]] && systems=("nix" "win")
-    for os in "${systems[@]}"; do
-        process_system_templates "$os" "$1"
+$srcfile:
+
+$(cat "$srctmp")
+
+$(for f in "${targets[@]}"; do
+        echo "$f:"
+        echo
+        echo "$tmplstr"
+    done)
+
+Proceed [Y|n]? "
+
+    until [[ $REPLY =~ ^[NYny]$ ]]; do
+        read -rp "$message"
+        [[ -z $REPLY ]] && break
+    done
+    if [[ $REPLY =~ ^[Nn]$ ]]; then exit; fi
+    cp "$srctmp" "$srcfile"
+    for f in "${targets[@]}"; do
+        echo "$tmplstr" >"$CHEZMOISOURCE/$f"
     done
 }
 
-nvimconfm::remove() {
-    echo "This is the remove function with args: $*"
+tmpl::remove() {
+    :
 }
 
 parse_subcommands() {
-    local subcmd
-    subcmd="$1"
+    local subcmd="$1"
     shift
     case "$subcmd" in
-        add)
-            nvimconfm::add "$@"
-            ;;
-        remove)
-            nvimconfm::remove "$@"
-            ;;
+        add) tmpl::add "$@" ;;
+        remove) tmpl::remove "$@" ;;
         *)
             die e "Unknown subcommand or option"
+            help >&2
             exit 1
             ;;
     esac
 }
 
 main() {
-    local opt OPTIND
+    local opt OPTIND OPTARG
     while getopts h opt "$@"; do
         case "$opt" in
             h)
                 help
-                exit 0
+                exit
                 ;;
             ?)
-                die e 'Unknown option'
+                die e 'Unknown option.'
                 help >&2
+                exit 1
                 ;;
         esac
     done
