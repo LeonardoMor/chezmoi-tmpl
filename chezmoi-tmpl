@@ -115,9 +115,7 @@ $srcfile:
 $(cat "$srctmp")
 
 $(for f in "${targets[@]}"; do
-        echo "$f:"
-        echo
-        echo "$tmplstr"
+        printf '%s:\n\n%s\n\n' "$f" "$tmplstr"
     done)
 
 Proceed [Y|n]? "
