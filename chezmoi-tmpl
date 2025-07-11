@@ -44,10 +44,12 @@ change_dir() {
 
 help() {
     cat <<HERE
-Manage template files in $CHEZMOISOURCE/.chezmoitemplates
-Use $NAME <subcommand> -h to get help for individual subcommands.
+Description:
+  Manage template files in $CHEZMOISOURCE/.chezmoitemplates
+  Use $NAME <subcommand> -h to get help for individual subcommands.
 
-Usage: $NAME [options] {add|remove|rename} [options] parameters
+Usage:
+  $NAME [options] {add|remove|rename} [options] parameters
 
 Options:
   -h		Show this help message and exit.
@@ -64,10 +66,12 @@ tmpl::add() {
 
     usage() {
         cat <<HERE
-Add template files on $CHEZMOISOURCE/.chezmoitemplates and generate their 
-corresponding template files pointing to the source on the indicated targets.
+Description:
+  Add template files on $CHEZMOISOURCE/.chezmoitemplates and generate their 
+  corresponding template files pointing to the source on the indicated targets.
 
-Usage: $NAME [options] add [options] paths
+Usage:
+  $NAME [options] add [options] paths
 
 Options:
   -h		Show this help message and exit.
